@@ -1,0 +1,546 @@
+blueprint:
+  name: Zeitschaltuhr – mehrere Zyklen, Sonne & optionale Dimmrampe
+  description: >
+    Steuert ausgewählte Entitäten (Lichter/Schalter) anhand von bis zu 4 täglichen Zeitfenstern (Zyklen).
+    Pro Zyklus kann Einschalten und Ausschalten jeweils über feste Uhrzeit, Sonnenaufgang oder Sonnenuntergang
+    ausgelöst werden. Bei Sonnenauf/-untergang kann ein Offset angegeben werden (z.B. -00:30:00 = 30 Min davor,
+    00:30:00 = 30 Min danach).
+
+    Optional: Dimmrampe für Lichter nach dem Einschalten (Start-Helligkeit + Erhöhung in Schritten).
+    Hinweis: Home Assistant Blueprints können Eingabefelder leider nicht dynamisch je nach "Anzahl Zyklen"
+    ein-/ausblenden. Zyklen > Anzahl werden einfach ignoriert.
+  domain: automation
+
+  input:
+    targets:
+      name: Zu steuernde Entitäten
+      description: Wähle eine oder mehrere Lampen (light.*) und/oder Schalter/Steckdosen (switch.*).
+      selector:
+        entity:
+          multiple: true
+          domain:
+            - light
+            - switch
+
+    cycle_count:
+      name: Anzahl Zyklen
+      description: Wie viele Zyklen (Zeitfenster) sollen aktiv sein?
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 4
+          step: 1
+          mode: slider
+
+    # -------------------------
+    # Zyklus 1
+    # -------------------------
+    c1_on_type:
+      name: "Zyklus 1 – Einschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c1_on_time:
+      name: "Zyklus 1 – Einschalten: Uhrzeit"
+      default: "08:00:00"
+      selector:
+        time: {}
+    c1_on_offset:
+      name: "Zyklus 1 – Einschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c1_off_type:
+      name: "Zyklus 1 – Ausschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c1_off_time:
+      name: "Zyklus 1 – Ausschalten: Uhrzeit"
+      default: "09:00:00"
+      selector:
+        time: {}
+    c1_off_offset:
+      name: "Zyklus 1 – Ausschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    # -------------------------
+    # Zyklus 2
+    # -------------------------
+    c2_on_type:
+      name: "Zyklus 2 – Einschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c2_on_time:
+      name: "Zyklus 2 – Einschalten: Uhrzeit"
+      default: "17:00:00"
+      selector:
+        time: {}
+    c2_on_offset:
+      name: "Zyklus 2 – Einschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c2_off_type:
+      name: "Zyklus 2 – Ausschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c2_off_time:
+      name: "Zyklus 2 – Ausschalten: Uhrzeit"
+      default: "19:00:00"
+      selector:
+        time: {}
+    c2_off_offset:
+      name: "Zyklus 2 – Ausschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    # -------------------------
+    # Zyklus 3
+    # -------------------------
+    c3_on_type:
+      name: "Zyklus 3 – Einschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c3_on_time:
+      name: "Zyklus 3 – Einschalten: Uhrzeit"
+      default: "20:00:00"
+      selector:
+        time: {}
+    c3_on_offset:
+      name: "Zyklus 3 – Einschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c3_off_type:
+      name: "Zyklus 3 – Ausschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c3_off_time:
+      name: "Zyklus 3 – Ausschalten: Uhrzeit"
+      default: "21:00:00"
+      selector:
+        time: {}
+    c3_off_offset:
+      name: "Zyklus 3 – Ausschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    # -------------------------
+    # Zyklus 4
+    # -------------------------
+    c4_on_type:
+      name: "Zyklus 4 – Einschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c4_on_time:
+      name: "Zyklus 4 – Einschalten: Uhrzeit"
+      default: "00:00:00"
+      selector:
+        time: {}
+    c4_on_offset:
+      name: "Zyklus 4 – Einschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c4_off_type:
+      name: "Zyklus 4 – Ausschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c4_off_time:
+      name: "Zyklus 4 – Ausschalten: Uhrzeit"
+      default: "00:00:00"
+      selector:
+        time: {}
+    c4_off_offset:
+      name: "Zyklus 4 – Ausschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    # -------------------------
+    # Optionale Dimmrampe (nur für Lichter)
+    # -------------------------
+    ramp_enabled:
+      name: Dimmrampe aktivieren
+      description: "Wenn aktiv, werden ausgewählte lights beim Einschalten auf Start-Helligkeit gesetzt und anschließend stufenweise erhöht."
+      default: false
+      selector:
+        boolean: {}
+
+    ramp_cycles:
+      name: Dimmrampe anwenden in Zyklen
+      description: "In welchen Zyklen soll die Dimmrampe nach dem Einschalten laufen?"
+      default: []
+      selector:
+        select:
+          multiple: true
+          mode: dropdown
+          options:
+            - label: Zyklus 1
+              value: "1"
+            - label: Zyklus 2
+              value: "2"
+            - label: Zyklus 3
+              value: "3"
+            - label: Zyklus 4
+              value: "4"
+
+    ramp_start_pct:
+      name: Dimmrampe – Start-Helligkeit (%)
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+
+    ramp_step_pct:
+      name: Dimmrampe – Erhöhung pro Schritt (%)
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+
+    ramp_max_pct:
+      name: Dimmrampe – Max. Helligkeit (%)
+      default: 80
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+
+    ramp_interval:
+      name: Dimmrampe – Schrittintervall
+      description: "Zeit zwischen zwei Helligkeits-Schritten (z.B. 01:00:00 für jede Stunde)."
+      default:
+        hours: 1
+        minutes: 0
+        seconds: 0
+      selector:
+        duration: {}
+
+    ramp_transition_s:
+      name: Dimmrampe – Übergang (Sekunden)
+      description: "Optionaler Übergang pro Helligkeitsänderung (0 = sofort)."
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          mode: slider
+
+mode: restart
+max_exceeded: silent
+
+trigger:
+  # Zyklus 1 ON
+  - platform: time
+    at: !input c1_on_time
+    id: c1_on_time
+  - platform: sun
+    event: sunrise
+    offset: !input c1_on_offset
+    id: c1_on_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c1_on_offset
+    id: c1_on_sunset
+
+  # Zyklus 1 OFF
+  - platform: time
+    at: !input c1_off_time
+    id: c1_off_time
+  - platform: sun
+    event: sunrise
+    offset: !input c1_off_offset
+    id: c1_off_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c1_off_offset
+    id: c1_off_sunset
+
+  # Zyklus 2 ON
+  - platform: time
+    at: !input c2_on_time
+    id: c2_on_time
+  - platform: sun
+    event: sunrise
+    offset: !input c2_on_offset
+    id: c2_on_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c2_on_offset
+    id: c2_on_sunset
+
+  # Zyklus 2 OFF
+  - platform: time
+    at: !input c2_off_time
+    id: c2_off_time
+  - platform: sun
+    event: sunrise
+    offset: !input c2_off_offset
+    id: c2_off_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c2_off_offset
+    id: c2_off_sunset
+
+  # Zyklus 3 ON
+  - platform: time
+    at: !input c3_on_time
+    id: c3_on_time
+  - platform: sun
+    event: sunrise
+    offset: !input c3_on_offset
+    id: c3_on_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c3_on_offset
+    id: c3_on_sunset
+
+  # Zyklus 3 OFF
+  - platform: time
+    at: !input c3_off_time
+    id: c3_off_time
+  - platform: sun
+    event: sunrise
+    offset: !input c3_off_offset
+    id: c3_off_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c3_off_offset
+    id: c3_off_sunset
+
+  # Zyklus 4 ON
+  - platform: time
+    at: !input c4_on_time
+    id: c4_on_time
+  - platform: sun
+    event: sunrise
+    offset: !input c4_on_offset
+    id: c4_on_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c4_on_offset
+    id: c4_on_sunset
+
+  # Zyklus 4 OFF
+  - platform: time
+    at: !input c4_off_time
+    id: c4_off_time
+  - platform: sun
+    event: sunrise
+    offset: !input c4_off_offset
+    id: c4_off_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c4_off_offset
+    id: c4_off_sunset
+
+condition: []
+
+action:
+  - condition: template
+    value_template: "{{ trigger is defined and trigger.id is defined }}"
+
+  - variables:
+      target_entities: !input targets
+      cycle_count: !input cycle_count
+
+      on_type_map:
+        c1: !input c1_on_type
+        c2: !input c2_on_type
+        c3: !input c3_on_type
+        c4: !input c4_on_type
+      off_type_map:
+        c1: !input c1_off_type
+        c2: !input c2_off_type
+        c3: !input c3_off_type
+        c4: !input c4_off_type
+
+      ramp_enabled: !input ramp_enabled
+      ramp_cycles: !input ramp_cycles
+      ramp_start_pct: !input ramp_start_pct
+      ramp_step_pct: !input ramp_step_pct
+      ramp_max_pct: !input ramp_max_pct
+
+      trig_id: "{{ trigger.id }}"
+      c_str: "{{ trig_id.split('_')[0] }}"
+      edge: "{{ trig_id.split('_')[1] }}"
+      kind: "{{ trig_id.split('_')[2] }}"
+      cycle_num: "{{ c_str[1:] | int }}"
+      cycle_enabled: "{{ cycle_num <= (cycle_count | int) }}"
+      selected_kind: >
+        {% if edge == 'on' %}
+          {{ on_type_map[c_str] }}
+        {% else %}
+          {{ off_type_map[c_str] }}
+        {% endif %}
+      execute: "{{ cycle_enabled and (selected_kind == kind) }}"
+
+      lights: '{{ target_entities | select("match", "^light\.") | list }}'
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ execute and edge == 'on' }}"
+        sequence:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: !input targets
+
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: >
+                      {{ ramp_enabled
+                         and (cycle_num | string) in (ramp_cycles | default([]))
+                         and (lights | length > 0) }}
+                sequence:
+                  - service: light.turn_on
+                    target:
+                      entity_id: "{{ lights }}"
+                    data:
+                      brightness_pct: !input ramp_start_pct
+                      transition: !input ramp_transition_s
+
+                  - variables:
+                      start: !input ramp_start_pct
+                      step: !input ramp_step_pct
+                      max: !input ramp_max_pct
+                      steps: >
+                        {% set s = (step | int) %}
+                        {% set a = (start | int) %}
+                        {% set m = (max | int) %}
+                        {% if s <= 0 or m <= a %}
+                          0
+                        {% else %}
+                          {{ ((m - a) / s) | round(0, 'ceil') | int }}
+                        {% endif %}
+
+                  - repeat:
+                      count: "{{ steps }}"
+                      sequence:
+                        - delay: !input ramp_interval
+
+                        - choose:
+                            - conditions:
+                                - condition: template
+                                  value_template: >
+                                    {{ (expand(lights) | selectattr('state','eq','on') | list | length) > 0 }}
+                              sequence:
+                                - service: light.turn_on
+                                  target:
+                                    entity_id: "{{ lights }}"
+                                  data:
+                                    brightness_pct: >
+                                      {% set a = (start | int) %}
+                                      {% set s = (step | int) %}
+                                      {% set m = (max | int) %}
+                                      {{ [a + (repeat.index * s), m] | min }}
+                                    transition: !input ramp_transition_s
+                          default:
+                            - stop: "Dimmrampe abgebrochen (Licht ist aus)"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ execute and edge == 'off' }}"
+        sequence:
+          - service: homeassistant.turn_off
+            target:
+              entity_id: !input targets
