@@ -1,0 +1,1164 @@
+blueprint:
+  name: Zeitschaltuhr – mehrere Zyklen, Sonne, Farbe, Dimmrampe & Farbwechsel (stabil)
+  description: >
+    Steuert ausgewählte Entitäten (Lichter/Schalter) anhand von bis zu 4 täglichen Zeitfenstern (Zyklen).
+    Pro Zyklus kann Einschalten und Ausschalten jeweils über feste Uhrzeit, Sonnenaufgang oder Sonnenuntergang
+    ausgelöst werden. Bei Sonnenauf/-untergang kann ein Offset angegeben werden (z.B. -00:30:00 = 30 Min davor,
+    00:30:00 = 30 Min danach).
+
+    Pro Zyklus kann optional eine Start-Helligkeit und Start-Farbe gesetzt werden. Wenn nichts angegeben ist,
+    wird einfach nur eingeschaltet (ohne spezielle Werte).
+
+    Optional: Dimmrampe für Lichter nach dem Einschalten (Start-Helligkeit + Erhöhung in Schritten).
+    Wenn pro Zyklus eine Start-Helligkeit gesetzt ist (>0), wird diese als Startwert der Rampe verwendet.
+
+    Optional: Farbwechsel (RGB) während eines Zyklus (global konfiguriert, pro Zyklus aktivierbar).
+
+    Neu: Stabilere OFF-Logik (Fallback: homeassistant.turn_off), bool-Konvertierung, Debug-Option.
+  domain: automation
+
+  input:
+    targets:
+      name: Zu steuernde Entitäten
+      description: Wähle eine oder mehrere Lampen (light.*) und/oder Schalter/Steckdosen (switch.*).
+      selector:
+        entity:
+          multiple: true
+          domain:
+            - light
+            - switch
+
+    cycle_count:
+      name: Anzahl Zyklen
+      description: Wie viele Zyklen (Zeitfenster) sollen aktiv sein?
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 4
+          step: 1
+          mode: slider
+
+    debug_logging:
+      name: Debug Logging
+      description: Schreibt bei jedem Trigger einen Eintrag ins Logbuch (hilft beim Debuggen).
+      default: false
+      selector:
+        boolean: {}
+
+    # -------------------------
+    # Zyklus 1
+    # -------------------------
+    c1_on_type:
+      name: "Zyklus 1 – Einschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c1_on_time:
+      name: "Zyklus 1 – Einschalten: Uhrzeit"
+      default: "08:00:00"
+      selector:
+        time: {}
+    c1_on_offset:
+      name: "Zyklus 1 – Einschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c1_on_brightness:
+      name: "Zyklus 1 – Einschalten: Helligkeit (%)"
+      description: "0 = keine Vorgabe (Standard: einfach nur einschalten)"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          mode: slider
+
+    c1_on_color_mode:
+      name: "Zyklus 1 – Einschalten: Farbe (optional)"
+      default: none
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Keine Vorgabe
+              value: none
+            - label: RGB-Farbe
+              value: rgb
+            - label: Farbtemperatur (Kelvin)
+              value: color_temp
+
+    c1_on_color_rgb:
+      name: "Zyklus 1 – Einschalten: RGB-Farbe"
+      default: [0, 0, 0]
+      selector:
+        color_rgb: {}
+
+    c1_on_color_temp:
+      name: "Zyklus 1 – Einschalten: Farbtemperatur (Kelvin)"
+      default: 2700
+      selector:
+        color_temp:
+          unit: kelvin
+          min: 2700
+          max: 6500
+
+    c1_on_transition_s:
+      name: "Zyklus 1 – Einschalten: Übergang (Sekunden)"
+      description: "0 = sofort"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          mode: slider
+
+    c1_off_type:
+      name: "Zyklus 1 – Ausschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c1_off_time:
+      name: "Zyklus 1 – Ausschalten: Uhrzeit"
+      default: "09:00:00"
+      selector:
+        time: {}
+    c1_off_offset:
+      name: "Zyklus 1 – Ausschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c1_off_transition_s:
+      name: "Zyklus 1 – Ausschalten: Fade-out (Sekunden)"
+      description: "0 = sofort ausschalten"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 3600
+          step: 1
+          mode: slider
+
+    # -------------------------
+    # Zyklus 2
+    # -------------------------
+    c2_on_type:
+      name: "Zyklus 2 – Einschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c2_on_time:
+      name: "Zyklus 2 – Einschalten: Uhrzeit"
+      default: "17:00:00"
+      selector:
+        time: {}
+    c2_on_offset:
+      name: "Zyklus 2 – Einschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c2_on_brightness:
+      name: "Zyklus 2 – Einschalten: Helligkeit (%)"
+      description: "0 = keine Vorgabe (Standard: einfach nur einschalten)"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          mode: slider
+
+    c2_on_color_mode:
+      name: "Zyklus 2 – Einschalten: Farbe (optional)"
+      default: none
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Keine Vorgabe
+              value: none
+            - label: RGB-Farbe
+              value: rgb
+            - label: Farbtemperatur (Kelvin)
+              value: color_temp
+
+    c2_on_color_rgb:
+      name: "Zyklus 2 – Einschalten: RGB-Farbe"
+      default: [0, 0, 0]
+      selector:
+        color_rgb: {}
+
+    c2_on_color_temp:
+      name: "Zyklus 2 – Einschalten: Farbtemperatur (Kelvin)"
+      default: 2700
+      selector:
+        color_temp:
+          unit: kelvin
+          min: 2700
+          max: 6500
+
+    c2_on_transition_s:
+      name: "Zyklus 2 – Einschalten: Übergang (Sekunden)"
+      description: "0 = sofort"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          mode: slider
+
+    c2_off_type:
+      name: "Zyklus 2 – Ausschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c2_off_time:
+      name: "Zyklus 2 – Ausschalten: Uhrzeit"
+      default: "19:00:00"
+      selector:
+        time: {}
+    c2_off_offset:
+      name: "Zyklus 2 – Ausschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c2_off_transition_s:
+      name: "Zyklus 2 – Ausschalten: Fade-out (Sekunden)"
+      description: "0 = sofort ausschalten"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 3600
+          step: 1
+          mode: slider
+
+    # -------------------------
+    # Zyklus 3
+    # -------------------------
+    c3_on_type:
+      name: "Zyklus 3 – Einschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c3_on_time:
+      name: "Zyklus 3 – Einschalten: Uhrzeit"
+      default: "20:00:00"
+      selector:
+        time: {}
+    c3_on_offset:
+      name: "Zyklus 3 – Einschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c3_on_brightness:
+      name: "Zyklus 3 – Einschalten: Helligkeit (%)"
+      description: "0 = keine Vorgabe (Standard: einfach nur einschalten)"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          mode: slider
+
+    c3_on_color_mode:
+      name: "Zyklus 3 – Einschalten: Farbe (optional)"
+      default: none
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Keine Vorgabe
+              value: none
+            - label: RGB-Farbe
+              value: rgb
+            - label: Farbtemperatur (Kelvin)
+              value: color_temp
+
+    c3_on_color_rgb:
+      name: "Zyklus 3 – Einschalten: RGB-Farbe"
+      default: [0, 0, 0]
+      selector:
+        color_rgb: {}
+
+    c3_on_color_temp:
+      name: "Zyklus 3 – Einschalten: Farbtemperatur (Kelvin)"
+      default: 2700
+      selector:
+        color_temp:
+          unit: kelvin
+          min: 2700
+          max: 6500
+
+    c3_on_transition_s:
+      name: "Zyklus 3 – Einschalten: Übergang (Sekunden)"
+      description: "0 = sofort"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          mode: slider
+
+    c3_off_type:
+      name: "Zyklus 3 – Ausschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c3_off_time:
+      name: "Zyklus 3 – Ausschalten: Uhrzeit"
+      default: "21:00:00"
+      selector:
+        time: {}
+    c3_off_offset:
+      name: "Zyklus 3 – Ausschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c3_off_transition_s:
+      name: "Zyklus 3 – Ausschalten: Fade-out (Sekunden)"
+      description: "0 = sofort ausschalten"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 3600
+          step: 1
+          mode: slider
+
+    # -------------------------
+    # Zyklus 4
+    # -------------------------
+    c4_on_type:
+      name: "Zyklus 4 – Einschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c4_on_time:
+      name: "Zyklus 4 – Einschalten: Uhrzeit"
+      default: "00:00:00"
+      selector:
+        time: {}
+    c4_on_offset:
+      name: "Zyklus 4 – Einschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c4_on_brightness:
+      name: "Zyklus 4 – Einschalten: Helligkeit (%)"
+      description: "0 = keine Vorgabe (Standard: einfach nur einschalten)"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          mode: slider
+
+    c4_on_color_mode:
+      name: "Zyklus 4 – Einschalten: Farbe (optional)"
+      default: none
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Keine Vorgabe
+              value: none
+            - label: RGB-Farbe
+              value: rgb
+            - label: Farbtemperatur (Kelvin)
+              value: color_temp
+
+    c4_on_color_rgb:
+      name: "Zyklus 4 – Einschalten: RGB-Farbe"
+      default: [0, 0, 0]
+      selector:
+        color_rgb: {}
+
+    c4_on_color_temp:
+      name: "Zyklus 4 – Einschalten: Farbtemperatur (Kelvin)"
+      default: 2700
+      selector:
+        color_temp:
+          unit: kelvin
+          min: 2700
+          max: 6500
+
+    c4_on_transition_s:
+      name: "Zyklus 4 – Einschalten: Übergang (Sekunden)"
+      description: "0 = sofort"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          mode: slider
+
+    c4_off_type:
+      name: "Zyklus 4 – Ausschalten: Typ"
+      default: time
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Feste Uhrzeit
+              value: time
+            - label: Sonnenaufgang
+              value: sunrise
+            - label: Sonnenuntergang
+              value: sunset
+    c4_off_time:
+      name: "Zyklus 4 – Ausschalten: Uhrzeit"
+      default: "00:00:00"
+      selector:
+        time: {}
+    c4_off_offset:
+      name: "Zyklus 4 – Ausschalten: Offset (nur für Sonne)"
+      description: "Format HH:MM:SS, optional mit Vorzeichen. Beispiel: -00:30:00 oder 00:30:00"
+      default: "00:00:00"
+      selector:
+        text: {}
+
+    c4_off_transition_s:
+      name: "Zyklus 4 – Ausschalten: Fade-out (Sekunden)"
+      description: "0 = sofort ausschalten"
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 3600
+          step: 1
+          mode: slider
+
+    # -------------------------
+    # Optionale Dimmrampe (nur für Lichter)
+    # -------------------------
+    ramp_enabled:
+      name: Dimmrampe aktivieren
+      default: false
+      selector:
+        boolean: {}
+
+    ramp_cycles:
+      name: Dimmrampe anwenden in Zyklen
+      default: []
+      selector:
+        select:
+          multiple: true
+          mode: dropdown
+          options:
+            - label: Zyklus 1
+              value: "1"
+            - label: Zyklus 2
+              value: "2"
+            - label: Zyklus 3
+              value: "3"
+            - label: Zyklus 4
+              value: "4"
+
+    ramp_start_pct:
+      name: Dimmrampe – Start-Helligkeit (%)
+      description: "Wird genutzt, wenn im jeweiligen Zyklus keine Start-Helligkeit gesetzt ist (Zyklus-Starthelligkeit = 0)."
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+
+    ramp_step_pct:
+      name: Dimmrampe – Erhöhung pro Schritt (%)
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+
+    ramp_max_pct:
+      name: Dimmrampe – Max. Helligkeit (%)
+      default: 80
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+
+    ramp_interval:
+      name: Dimmrampe – Schrittintervall
+      default:
+        hours: 1
+        minutes: 0
+        seconds: 0
+      selector:
+        duration: {}
+
+    ramp_transition_s:
+      name: Dimmrampe – Übergang pro Schritt (Sekunden)
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          mode: slider
+
+    # -------------------------
+    # Optionaler Farbwechsel (RGB) während eines Zyklus
+    # -------------------------
+    color_cycle_enabled:
+      name: Farbwechsel aktivieren
+      default: false
+      selector:
+        boolean: {}
+
+    color_cycle_cycles:
+      name: Farbwechsel anwenden in Zyklen
+      default: []
+      selector:
+        select:
+          multiple: true
+          mode: dropdown
+          options:
+            - label: Zyklus 1
+              value: "1"
+            - label: Zyklus 2
+              value: "2"
+            - label: Zyklus 3
+              value: "3"
+            - label: Zyklus 4
+              value: "4"
+
+    color_cycle_interval:
+      name: Farbwechsel – Intervall
+      default:
+        minutes: 1
+        seconds: 0
+      selector:
+        duration: {}
+
+    color_cycle_transition_s:
+      name: Farbwechsel – Übergang (Sekunden)
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          mode: slider
+
+    color_cycle_color1:
+      name: Farbwechsel – Farbe 1 (RGB)
+      default: [0, 0, 0]
+      selector:
+        color_rgb: {}
+
+    color_cycle_color2:
+      name: Farbwechsel – Farbe 2 (RGB)
+      default: [0, 0, 0]
+      selector:
+        color_rgb: {}
+
+    color_cycle_color3:
+      name: Farbwechsel – Farbe 3 (RGB)
+      default: [0, 0, 0]
+      selector:
+        color_rgb: {}
+
+    color_cycle_color4:
+      name: Farbwechsel – Farbe 4 (RGB)
+      default: [0, 0, 0]
+      selector:
+        color_rgb: {}
+
+    color_cycle_color5:
+      name: Farbwechsel – Farbe 5 (RGB)
+      default: [0, 0, 0]
+      selector:
+        color_rgb: {}
+
+mode: restart
+max_exceeded: silent
+
+trigger:
+  # Zyklus 1 ON
+  - platform: time
+    at: !input c1_on_time
+    id: c1_on_time
+  - platform: sun
+    event: sunrise
+    offset: !input c1_on_offset
+    id: c1_on_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c1_on_offset
+    id: c1_on_sunset
+
+  # Zyklus 1 OFF
+  - platform: time
+    at: !input c1_off_time
+    id: c1_off_time
+  - platform: sun
+    event: sunrise
+    offset: !input c1_off_offset
+    id: c1_off_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c1_off_offset
+    id: c1_off_sunset
+
+  # Zyklus 2 ON
+  - platform: time
+    at: !input c2_on_time
+    id: c2_on_time
+  - platform: sun
+    event: sunrise
+    offset: !input c2_on_offset
+    id: c2_on_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c2_on_offset
+    id: c2_on_sunset
+
+  # Zyklus 2 OFF
+  - platform: time
+    at: !input c2_off_time
+    id: c2_off_time
+  - platform: sun
+    event: sunrise
+    offset: !input c2_off_offset
+    id: c2_off_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c2_off_offset
+    id: c2_off_sunset
+
+  # Zyklus 3 ON
+  - platform: time
+    at: !input c3_on_time
+    id: c3_on_time
+  - platform: sun
+    event: sunrise
+    offset: !input c3_on_offset
+    id: c3_on_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c3_on_offset
+    id: c3_on_sunset
+
+  # Zyklus 3 OFF
+  - platform: time
+    at: !input c3_off_time
+    id: c3_off_time
+  - platform: sun
+    event: sunrise
+    offset: !input c3_off_offset
+    id: c3_off_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c3_off_offset
+    id: c3_off_sunset
+
+  # Zyklus 4 ON
+  - platform: time
+    at: !input c4_on_time
+    id: c4_on_time
+  - platform: sun
+    event: sunrise
+    offset: !input c4_on_offset
+    id: c4_on_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c4_on_offset
+    id: c4_on_sunset
+
+  # Zyklus 4 OFF
+  - platform: time
+    at: !input c4_off_time
+    id: c4_off_time
+  - platform: sun
+    event: sunrise
+    offset: !input c4_off_offset
+    id: c4_off_sunrise
+  - platform: sun
+    event: sunset
+    offset: !input c4_off_offset
+    id: c4_off_sunset
+
+condition: []
+
+action:
+  - condition: template
+    value_template: "{{ trigger is defined and trigger.id is defined }}"
+
+  - variables:
+      target_entities: !input targets
+      cycle_count: !input cycle_count
+      debug_logging: !input debug_logging
+
+      # Trigger-Auswertung
+      trig_id: "{{ trigger.id }}"
+      c_str: "{{ trig_id.split('_')[0] }}"     # z.B. c1
+      edge: "{{ trig_id.split('_')[1] }}"      # on/off
+      kind: "{{ trig_id.split('_')[2] }}"      # time/sunrise/sunset
+      cycle_num: "{{ c_str[1:] | int }}"
+      cycle_enabled: "{{ cycle_num <= (cycle_count | int) }}"
+
+      # Entitäten nach Domain trennen
+      lights: "{{ target_entities | select('match', '^light\\.') | list }}"
+      switches: "{{ target_entities | select('match', '^switch\\.') | list }}"
+
+      # Maps für ON/OFF Typ
+      on_type_map:
+        c1: !input c1_on_type
+        c2: !input c2_on_type
+        c3: !input c3_on_type
+        c4: !input c4_on_type
+      off_type_map:
+        c1: !input c1_off_type
+        c2: !input c2_off_type
+        c3: !input c3_off_type
+        c4: !input c4_off_type
+
+      selected_kind: >
+        {% if edge == 'on' %}
+          {{ on_type_map[c_str] }}
+        {% else %}
+          {{ off_type_map[c_str] }}
+        {% endif %}
+
+      execute: "{{ (cycle_enabled | bool) and (selected_kind == kind) }}"
+
+      # Pro-Zyklus Startwerte
+      on_bri_map:
+        c1: !input c1_on_brightness
+        c2: !input c2_on_brightness
+        c3: !input c3_on_brightness
+        c4: !input c4_on_brightness
+
+      on_color_mode_map:
+        c1: !input c1_on_color_mode
+        c2: !input c2_on_color_mode
+        c3: !input c3_on_color_mode
+        c4: !input c4_on_color_mode
+
+      on_color_rgb_map:
+        c1: !input c1_on_color_rgb
+        c2: !input c2_on_color_rgb
+        c3: !input c3_on_color_rgb
+        c4: !input c4_on_color_rgb
+
+      on_color_temp_map:
+        c1: !input c1_on_color_temp
+        c2: !input c2_on_color_temp
+        c3: !input c3_on_color_temp
+        c4: !input c4_on_color_temp
+
+      on_transition_map:
+        c1: !input c1_on_transition_s
+        c2: !input c2_on_transition_s
+        c3: !input c3_on_transition_s
+        c4: !input c4_on_transition_s
+
+      off_transition_map:
+        c1: !input c1_off_transition_s
+        c2: !input c2_off_transition_s
+        c3: !input c3_off_transition_s
+        c4: !input c4_off_transition_s
+
+      cycle_on_bri: "{{ on_bri_map[c_str] | int }}"
+      cycle_on_color_mode: "{{ on_color_mode_map[c_str] }}"
+      cycle_on_color_rgb: "{{ on_color_rgb_map[c_str] }}"
+      cycle_on_color_temp: "{{ on_color_temp_map[c_str] | int }}"
+      cycle_on_transition: "{{ on_transition_map[c_str] | int }}"
+      cycle_off_transition: "{{ off_transition_map[c_str] | int }}"
+
+      # Dimmrampe Einstellungen
+      ramp_enabled: !input ramp_enabled
+      ramp_cycles: !input ramp_cycles
+      ramp_start_pct: !input ramp_start_pct
+      ramp_step_pct: !input ramp_step_pct
+      ramp_max_pct: !input ramp_max_pct
+      ramp_transition_s: !input ramp_transition_s
+
+      ramp_active: >
+        {{ (ramp_enabled | bool)
+           and (cycle_num | string) in (ramp_cycles | default([]))
+           and (lights | length > 0) }}
+
+      ramp_start_effective: >
+        {% set b = (cycle_on_bri | int) %}
+        {% set fb = (ramp_start_pct | int) %}
+        {% set m = (ramp_max_pct | int) %}
+        {% set s = b if b > 0 else fb %}
+        {{ [s, m] | min }}
+
+      ramp_initial_transition: >
+        {% set t = (cycle_on_transition | int) %}
+        {% set rt = (ramp_transition_s | int) %}
+        {{ t if t > 0 else rt }}
+
+      # Light Override nötig (nur wenn KEINE Rampe läuft)
+      need_on_light_override: >
+        {{ (lights | length > 0)
+           and (not (ramp_active | bool))
+           and (cycle_on_bri > 0 or cycle_on_color_mode != 'none' or cycle_on_transition > 0) }}
+
+      # Farbwechsel (RGB) Einstellungen
+      color_cycle_enabled: !input color_cycle_enabled
+      color_cycle_cycles: !input color_cycle_cycles
+      color_cycle_transition_s: !input color_cycle_transition_s
+      cc1: !input color_cycle_color1
+      cc2: !input color_cycle_color2
+      cc3: !input color_cycle_color3
+      cc4: !input color_cycle_color4
+      cc5: !input color_cycle_color5
+
+      color_cycle_colors: >
+        {% set ns = namespace(lst=[]) %}
+        {% for c in [cc1, cc2, cc3, cc4, cc5] %}
+          {% if c is not none and (c | length) == 3 and not (c[0]==0 and c[1]==0 and c[2]==0) %}
+            {% set ns.lst = ns.lst + [c] %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.lst }}
+
+      color_cycle_len: "{{ color_cycle_colors | length }}"
+
+      color_cycle_active: >
+        {{ (color_cycle_enabled | bool)
+           and (cycle_num | string) in (color_cycle_cycles | default([]))
+           and (lights | length > 0)
+           and (color_cycle_len | int > 0) }}
+
+  # Optionales Debugging ins Logbuch
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ debug_logging | bool }}"
+        sequence:
+          - service: logbook.log
+            data:
+              name: "Zeitschaltuhr Blueprint"
+              message: >
+                Trigger={{ trig_id }} | cycle={{ cycle_num }} | edge={{ edge }} | kind={{ kind }} |
+                selected={{ selected_kind }} | execute={{ execute }} | lights={{ lights | length }} | switches={{ switches | length }}
+
+  - choose:
+      # -------------------------
+      # Einschalten
+      # -------------------------
+      - conditions:
+          - condition: template
+            value_template: "{{ (execute | bool) and edge == 'on' }}"
+        sequence:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: !input targets
+
+          # Wenn keine Rampe läuft, aber Start-Helligkeit/Farbe/Transition gesetzt ist -> direkt anwenden
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ need_on_light_override | bool }}"
+                sequence:
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ cycle_on_color_mode == 'rgb' and cycle_on_bri > 0 }}"
+                        sequence:
+                          - service: light.turn_on
+                            continue_on_error: true
+                            target:
+                              entity_id: "{{ lights }}"
+                            data:
+                              brightness_pct: "{{ cycle_on_bri }}"
+                              rgb_color: "{{ cycle_on_color_rgb | list }}"
+                              transition: "{{ cycle_on_transition }}"
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ cycle_on_color_mode == 'rgb' and cycle_on_bri == 0 }}"
+                        sequence:
+                          - service: light.turn_on
+                            continue_on_error: true
+                            target:
+                              entity_id: "{{ lights }}"
+                            data:
+                              rgb_color: "{{ cycle_on_color_rgb | list }}"
+                              transition: "{{ cycle_on_transition }}"
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ cycle_on_color_mode == 'color_temp' and cycle_on_bri > 0 }}"
+                        sequence:
+                          - service: light.turn_on
+                            continue_on_error: true
+                            target:
+                              entity_id: "{{ lights }}"
+                            data:
+                              brightness_pct: "{{ cycle_on_bri }}"
+                              color_temp_kelvin: "{{ cycle_on_color_temp }}"
+                              transition: "{{ cycle_on_transition }}"
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ cycle_on_color_mode == 'color_temp' and cycle_on_bri == 0 }}"
+                        sequence:
+                          - service: light.turn_on
+                            continue_on_error: true
+                            target:
+                              entity_id: "{{ lights }}"
+                            data:
+                              color_temp_kelvin: "{{ cycle_on_color_temp }}"
+                              transition: "{{ cycle_on_transition }}"
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ cycle_on_color_mode == 'none' and cycle_on_bri > 0 }}"
+                        sequence:
+                          - service: light.turn_on
+                            continue_on_error: true
+                            target:
+                              entity_id: "{{ lights }}"
+                            data:
+                              brightness_pct: "{{ cycle_on_bri }}"
+                              transition: "{{ cycle_on_transition }}"
+                    default:
+                      - service: light.turn_on
+                        continue_on_error: true
+                        target:
+                          entity_id: "{{ lights }}"
+                        data:
+                          transition: "{{ cycle_on_transition }}"
+
+          # Rampe und/oder Farbwechsel parallel ausführen (je nach Aktivierung)
+          - parallel:
+              # Dimmrampe
+              - sequence:
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ ramp_active | bool }}"
+                        sequence:
+                          # Starthelligkeit (und ggf. Startfarbe) setzen
+                          - choose:
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ cycle_on_color_mode == 'rgb' }}"
+                                sequence:
+                                  - service: light.turn_on
+                                    continue_on_error: true
+                                    target:
+                                      entity_id: "{{ lights }}"
+                                    data:
+                                      brightness_pct: "{{ ramp_start_effective | int }}"
+                                      rgb_color: "{{ cycle_on_color_rgb | list }}"
+                                      transition: "{{ ramp_initial_transition | int }}"
+                              - conditions:
+                                  - condition: template
+                                    value_template: "{{ cycle_on_color_mode == 'color_temp' }}"
+                                sequence:
+                                  - service: light.turn_on
+                                    continue_on_error: true
+                                    target:
+                                      entity_id: "{{ lights }}"
+                                    data:
+                                      brightness_pct: "{{ ramp_start_effective | int }}"
+                                      color_temp_kelvin: "{{ cycle_on_color_temp | int }}"
+                                      transition: "{{ ramp_initial_transition | int }}"
+                            default:
+                              - service: light.turn_on
+                                continue_on_error: true
+                                target:
+                                  entity_id: "{{ lights }}"
+                                data:
+                                  brightness_pct: "{{ ramp_start_effective | int }}"
+                                  transition: "{{ ramp_initial_transition | int }}"
+
+                          - variables:
+                              start: "{{ ramp_start_effective | int }}"
+                              step: !input ramp_step_pct
+                              max: !input ramp_max_pct
+                              steps: >
+                                {% set s = (step | int) %}
+                                {% set a = (start | int) %}
+                                {% set m = (max | int) %}
+                                {% if s <= 0 or m <= a %}
+                                  0
+                                {% else %}
+                                  {{ ((m - a) / s) | round(0, 'ceil') | int }}
+                                {% endif %}
+
+                          - repeat:
+                              count: "{{ steps }}"
+                              sequence:
+                                - delay: !input ramp_interval
+
+                                - choose:
+                                    - conditions:
+                                        - condition: template
+                                          value_template: >
+                                            {{ (expand(lights) | selectattr('state','eq','on') | list | length) > 0 }}
+                                      sequence:
+                                        - service: light.turn_on
+                                          continue_on_error: true
+                                          target:
+                                            entity_id: "{{ lights }}"
+                                          data:
+                                            brightness_pct: >
+                                              {% set a = (start | int) %}
+                                              {% set s = (step | int) %}
+                                              {% set m = (max | int) %}
+                                              {{ [a + (repeat.index * s), m] | min }}
+                                            transition: !input ramp_transition_s
+                                  default:
+                                    - stop: "Dimmrampe abgebrochen (Licht ist aus)"
+
+              # Farbwechsel
+              - sequence:
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ color_cycle_active | bool }}"
+                        sequence:
+                          - repeat:
+                              while:
+                                - condition: template
+                                  value_template: >
+                                    {{ (expand(lights) | selectattr('state','eq','on') | list | length) > 0 }}
+                              sequence:
+                                - service: light.turn_on
+                                  continue_on_error: true
+                                  target:
+                                    entity_id: "{{ lights }}"
+                                  data:
+                                    rgb_color: "{{ color_cycle_colors[(repeat.index - 1) % (color_cycle_len | int)] | list }}"
+                                    transition: "{{ color_cycle_transition_s | int }}"
+                                - delay: !input color_cycle_interval
+
+      # -------------------------
+      # Ausschalten
+      # -------------------------
+      - conditions:
+          - condition: template
+            value_template: "{{ (execute | bool) and edge == 'off' }}"
+        sequence:
+          # Wenn Fade-out aktiv: Switches sofort aus, Lights mit Transition aus, dann Fallback sicherheitshalber aus.
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ (cycle_off_transition | int) > 0 }}"
+                sequence:
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ switches | length > 0 }}"
+                        sequence:
+                          - service: homeassistant.turn_off
+                            continue_on_error: true
+                            target:
+                              entity_id: "{{ switches }}"
+
+                  - choose:
+                      - conditions:
+                          - condition: template
+                            value_template: "{{ lights | length > 0 }}"
+                        sequence:
+                          - service: light.turn_off
+                            continue_on_error: true
+                            target:
+                              entity_id: "{{ lights }}"
+                            data:
+                              transition: "{{ cycle_off_transition | int }}"
+
+                  - delay:
+                      seconds: "{{ cycle_off_transition | int }}"
+
+                  # Fallback: sicherstellen, dass wirklich alles aus ist (auch wenn Light-Service fehlschlägt)
+                  - service: homeassistant.turn_off
+                    continue_on_error: true
+                    target:
+                      entity_id: !input targets
+
+            default:
+              # Ohne Fade-out: alles direkt aus (robust)
+              - service: homeassistant.turn_off
+                continue_on_error: true
+                target:
+                  entity_id: !input targets
